@@ -1,6 +1,9 @@
 package com.mzvzm.entity;
 
+import org.hibernate.Length;
+
 import javax.persistence.*;
+
 
 /**
  * @Author lilongsha
@@ -13,7 +16,7 @@ public class Phone {
     @Id
     private Long id;
 
-    @Column(name = "phone_number")
+    @Column(name = "phone_number", length = Length.LONG)
     private String number;
 
     @Enumerated(EnumType.ORDINAL)

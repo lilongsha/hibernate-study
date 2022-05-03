@@ -1,9 +1,9 @@
 package com.mzvzm.converter;
 
 import com.mzvzm.entity.Gender;
+import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.Converter;
 
-import javax.persistence.AttributeConverter;
-import javax.persistence.Converter;
 
 /**
  * @Author lilongsha

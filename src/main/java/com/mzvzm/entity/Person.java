@@ -1,9 +1,10 @@
 package com.mzvzm.entity;
 
 import com.mzvzm.converter.GenderConverter;
+import com.mzvzm.type.GenderType;
+import jakarta.persistence.Convert;
 import org.hibernate.annotations.Type;
 
-import javax.persistence.Convert;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 
