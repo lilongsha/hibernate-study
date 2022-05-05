@@ -13,6 +13,16 @@ public class Name {
     private String middleName;
     private String lastName;
 
+    private Name() {
+        throw new UnsupportedOperationException();
+    }
+
+    public Name(String firstName, String middleName, String lastName) {
+        this.firstName = firstName;
+        this.middleName = middleName;
+        this.lastName = lastName;
+    }
+
     public String getFirstName() {
         return firstName;
     }
