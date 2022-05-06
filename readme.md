@@ -24,6 +24,18 @@
 17. @Version() 实现乐观锁
 18. @Access(value: AccessType) 覆盖默认的访问策略
 19. @EmbeddedId 在实体中为属性指定为复合主键
+20. @GeneratedValue(strategy: GenerationType, generator: String) 指定生成标识符的策略
+21. @SequenceGenerator(name: String, sequenceName: String, catalog String, schema: String, initialValue: int, allocationSize: int) 指定使用Sequence做为id生成时此注解才有意义
+22. @TableGenerator(name: String, table: String, catalog: String, schema: String, pkColumnName: String, valueColumnName: String, pkColumnValue: String, initialValue: int, allocationSize: int, uniqueConstraints: UniqueConstraint[], indexes: Index[]) 配合表生成器使用指定表生成的配置信息
+23. @GenericGenerator(name: String, strategy: String, parameters: Parameter[]) 配合UUID生成器，指定相关参数
+24. @MapsId(value: String) 派生标识符只允许一对一或多对一的情况下使用
+25. @RowId(value: String) 需要数据库支持ROWID，在实体类上使用以指定ROWID
+26. @ManyToOne(targetEntity: Class, cascade: CascadeType[], fetch: FetchType, optional: boolean)
+27. @JoinColumn(name: String, referencedColumnName: String, unique: boolean, nullable: boolean, insertable: boolean, updatable: boolean, columnDefinition: String, table: String, foreignKey: ForeignKey)
+28. @OneToMany(targetEntity: Class, cascade: CascadeType[], fetch: FetchType, mappedBy: String, orphanRemoval: boolean)
+29. @OneToOne(targetEntity: Class, cascade: CascadeType[], fetch: FetchType, optional: boolean, mappedBy: String, orphanRemoval: boolean)
+30. @LazyToOne(value: LazyToOneOption)
+31. 
 ### 概述
 #### Hibernate实现了JPA(Java Persistence API)
 ![data_access_layer](./img/data_access_layers.svg)
@@ -287,4 +299,135 @@
 2. ![@IdClass与复合标识符](./img/@IdClass与复合标识符.png "@IdClass与复合标识符")
 3. ![IdClass 与@ManyToOne](./img/IdClass 与@ManyToOne.png "IdClass 与@ManyToOne")
 4. ![@IdClass使用部分标识符生成@GeneratedValue](./img/@IdClass使用部分标识符生成@GeneratedValue.png "@IdClass使用部分标识符生成@GeneratedValue")
-##### 2.7.5 具有关联的复合标识符
+##### 具有关联的复合标识符
+1. ![具有关联的复合标识符1 Book](./img/具有关联的复合标识符1 Book.png "具有关联的复合标识符1 Book")
+2. ![具有关联的复合标识符2 Author](./img/具有关联的复合标识符2 Author.png "具有关联的复合标识符2 Author")
+3. ![具有关联的复合标识符3 Publisher](./img/具有关联的复合标识符3 Publisher.png "具有关联的复合标识符3 Publisher")
+4. ![具有关联的复合标识符4 查询](./img/具有关联的复合标识符4 查询.png "具有关联的复合标识符4 查询")
+5. 尽管映射比使用@EmbeddedId或@IdClass简单得多，但实体实例和实际标识符之间没有分离
+6. 要查询此实体，必须将实体本身的实例提供给持久化上下文
+##### 具有生成属性的复合标识符
+1. 使用复合标识符时，基础标识符属性必须由用户手动分配。 
+2. 不支持使用自动生成的属性来生成构成复合标识符的基础属性的值。 
+3. 因此，您不能使用生成的属性部分描述的任何自动属性生成器，例如@Generated、@CreationTimestamp或@ValueGenerationType或数据库生成的值。 
+4. 尽管如此，您仍然可以在构造复合标识符之前生成标识符属性，如以下示例所示。 
+5. 假设我们有以下EventId复合标识符和一个Event使用上述复合标识符的实体。
+##### 生成的标识符值
+1. 使用jakarta.persistence.GeneratedValue(strategy: GenerationType), GenerationType.TABLE | GenerationType.SEQUENCE | GenerationType.IDENTITY | GenerationType.AUTO
+   1. AUTO (默认) 表示持久化提供者（Hibernate）应该选择一个合适的生成策略
+      1. 持久性提供者如何解释 AUTO 生成类型由提供者决定
+      2. 默认行为是查看标识符属性的 Java 类型，以及底层数据库支持的内容
+      3. 如果标识符类型是 UUID，Hibernate 将使用UUID 标识符
+      4. 如果标识符类型是数字的（例如Long, Integer），如果底层数据库支持序列，那么 Hibernate 将使用其SequenceStyleGenerator解析为 SEQUENCE 生成，否则使用基于表的生成
+   2. IDENTITY 指示数据库 IDENTITY 列将用于生成主键值
+      1. 为了实现基于 IDENTITY 列的标识符值生成，Hibernate 使用其**org.hibernate.id.IdentityGenerator** id生成器，该生成器期望标识符由 INSERT 生成到表中。IdentityGenerator 了解可以检索 INSERT 生成的值的 3 种不同方式
+         1. 如果 Hibernate 认为 JDBC 环境支持java.sql.Statement#getGeneratedKeys，那么该方法将用于提取 IDENTITY 生成的密钥
+         2. 如果Dialect#supportsInsertSelectIdentity报告为真，Hibernate 将使用方言特定的 INSERT+SELECT 语句语法
+         3. Hibernate 将期望数据库支持通过单独的 SQL 命令请求最近插入的 IDENTITY 值的某种形式，如 所示Dialect#getIdentitySelectStrin
+      2. 选择 IDENTITY 生成还有另一个重要的运行时影响：Hibernate 将无法为使用 IDENTITY 生成的实体批处理 INSERT 语句
+      3. 重要的是要意识到使用 IDENTITY 列强加了一种运行时行为，其中实体行必须在标识符值已知之前物理插入
+      4. 这可能会弄乱扩展的持久性上下文（长时间的对话）。由于运行时强加/不一致，Hibernate 建议将其他形式的标识符值生成（例如 SEQUENCE）与扩展上下文一起使用
+      5. 选择 IDENTITY 生成还有另一个重要的运行时影响：Hibernate 将无法为使用 IDENTITY 生成的实体批处理 INSERT 语句
+   3. SEQUENCE 指示应使用数据库序列来获取主键值
+      1. 为了实现基于数据库序列的标识符值生成，Hibernate 使用了它的 org.hibernate.id.enhanced.SequenceStyleGenerator id生成器。需要注意的是SequenceStyleGenerator，它能够通过透明地切换到作为底层支持的表来处理不支持序列的数据库，这为 Hibernate 提供了跨数据库的高度可移植性，同时仍然保持一致的 id 生成行为（而不是在序列和身份）
+      2. ![请注意，映射没有指定要使用的序列的名称。在这种情况下，Hibernate 将根据实体映射到的表的名称假定序列名称。在这里，由于实体被映射到一个名为 的表product，Hibernate 将使用一个名为 的序列product_seq](./img/隐式序列.png "隐式序列")
+      3. 使用@Subselect映射时，使用“表名”是无效的，因此 Hibernate 回退到使用实体名作为基础以及_seq后缀
+      4. ![对于这个映射，Hibernate 将explicit_product_sequence用作序列的名称](./img/命名序列.png "命名序列")
+      5. ![这只是命名序列中映射的一种更详细的形式。但是，jakarta.persistence.SequenceGenerator注释也允许您指定其他配置](./img/@SequenceGenerator配合序列使用.png "@SequenceGenerator配合序列使用")
+   4. TABLE 指示应使用数据库表来获取主键值
+      1. ![如果没有给定表名，Hibernate 假定隐含名称为hibernate_sequences.
+此外，由于没有jakarta.persistence.TableGenerator#pkColumnValue指定，Hibernate 将使用sequence_name='default'来自 hibernate_sequences 表的默认段 ( )](./img/未命名的表生成器.png "未命名的表生成器")
+      2. ![使用@TableGenerator()指定命名表生成器](./img/指定命名的表生成器.png "指定命名的表生成器")
+##### 使用UUID生成
+1. org.hibernate.id.UUIDGenerator id生成器支持
+2. ![UUID的生成策略包含随便、IP地址，默认策略是根据 IETF RFC 4122 的第 4 版（随机）策略。Hibernate 提供了另一种策略，即 RFC 4122 第 1 版（基于时间）策略（使用 IP 地址而不是 MAC 地址）](./img/隐式的使用UUID生成.png "隐式的使用UUID生成")
+3. ![使用@GenericGenerator](./img/隐式使用随机 UUID 策略.png "隐式使用随机 UUID 策略")
+##### **优化器**
+大多数从数据库结构中单独获取标识符值的 Hibernate 生成器都支持使用可插入优化器。优化器帮助管理 Hibernate 必须与数据库对话以生成标识符值的次数。例如，在没有优化器应用于序列生成器的情况下，每次应用程序要求 Hibernate 生成标识符时，它都需要从数据库中获取下一个序列值。但是如果我们可以尽量减少这里需要与数据库通信的次数，应用程序就能更好地执行，这其实就是这些优化器的作用
+1. none: 不执行优化
+2. pooled-lo: pooled-lo 优化器的工作原理是将增量值编码到数据库表/序列结构中。在序列术语中，这意味着序列是用大于 1 的增量大小定义的
+   1. 例如，考虑一个定义为 的全新序列create sequence m_sequence start with 1 increment by 20。这个序列本质上定义了一个包含 20 个可用 id 值的“池”，每次我们询问它的下一个值时。pooled-lo 优化器将下一个值解释为该池的低端
+   2. 因此，当我们第一次要求它提供下一个值时，我们会得到 1。然后我们假设有效池将是 1-20 的值（包括 1-20）
+   3. 对序列的下一次调用将产生 21，它将 21-40 定义为有效范围。等等。名称的“lo”部分表示来自数据库表/序列的值被解释为池 lo(w) end
+3. pooled: 就像 pooled-lo 一样，只是这里表/序列中的值被解释为值池的高端
+4. hilo | legacy-hilo: 定义自定义算法，用于根据表或序列中的单个值生成值池，不推荐使用这些优化器。在这里维护（和提及）它们只是为了供以前使用这些策略的遗留应用程序使用
+5. 应用程序还可以实现和使用它们自己的优化器策略，如org.hibernate.id.enhanced.Optimizer合约所定义
+##### 使用@IdGeneratorType
+1. ![定义一个类实现IdentifierGenerator，在自定义的注解上使用@IdGeneratorType()指定自定义生成器](./img/使用IdGeneratorType自定义生成器.png "使用IdGeneratorType自定义生成器")
+2. 注意CustomSequenceGenerator构造函数。@IdGeneratorType 通过接收以下参数定义的自定义生成器：
+   1. 配置注释 - 这里，@Sequence. 这是类型安全方面，而不是依赖于 Map 中的无类型配置属性等。 
+   2. Member应用注释的。这允许访问标识符属性等的 Java 类型。 
+   3. CustomIdGeneratorCreationContext是一个“参数对象”，提供对标识符生成器通常有用的事物的访问
+##### 使用@GenericGenerator
+1. @GenericGenerator通常认为不推荐使用@IdGeneratorType 
+2. @GenericGenerator允许集成任何 Hibernate org.hibernate.id.IdentifierGenerator实现，包括此处讨论的任何特定实现和任何自定义实现
+3. ![@GenericGenerator与Pooled-lo 优化器](./img/@GenericGenerator与Pooled-lo 优化器 "@GenericGenerator与Pooled-lo 优化器")
+##### 派生标识符@MapsId
+1. ![Java Persistence 2.0 增加了对派生标识符的支持，允许实体从"多对一"或"一对一"关联中借用标识符](./img/派生标识符@MapsId.png "派生标识符@MapsId")
+##### 派生标识符@PrimaryKeyJoinColumn
+1. ![派生标识符@PrimaryKeyJoinColumn，可以使用@PrimaryKeyJoinColumn来替代@MapsId](./img/派生标识符@PrimaryKeyJoinColumn.png "派生标识符@PrimaryKeyJoinColumn")
+2. 与@MapsId的区别
+   1. 与@MapsId不同的是，应用程序开发人员负责确保实体标识符和多对一（或一对一）关联是同步的，正如您在PersonDetails#setPerson方法中看到的那样
+##### @RowId
+1. 如果您使用注解对给定实体进行@RowId注解，并且底层数据库支持通过 ROWID（例如 Oracle）获取记录，那么 Hibernate 可以使用ROWID伪列进行 CRUD 操作
+2. ![@RowId](./img/@RowId.png "@RowId")
+3. 需要数据库支持
+#### Associations 关联
+关联描述了两个或多个实体如何基于数据库关系的实现
+##### @ManyToOne
+1. 用于描述数据库中多对一的实体
+2. ![@ManyToOne是最常见的关联，在关系数据库中也具有直接等效项（例如外键），因此它建立了子实体和父实体之间的关系。每个实体都有自己的生命周期。一旦@ManyToOne设置了关联，Hibernate 将设置关联的数据库外键列。](./img/@ManyToOne.png "@ManyToOne")
+3. @JoinColumn配合@ManyToOne使用
+##### @OneToMany
+1. 关联将父实体与一个或多个子实体链接起来
+2. 单向关联：当使用单向@OneToMany关联时，Hibernate 使用两个连接实体之间的链接表
+   1. ![单向关联实体](./img/@OneToMany单向关联1.png "单向关联")
+   2. ![单向关联数据库表](./img/@OneToMany单向关联2.png "单向关联")
+   3. 关联根据@OneToMany定义是父关联，无论它是单向的还是双向的。只有关联的父级才有意义将其实体状态转换级联到子级
+   4. ![@OneToMany单向关联删除示例1](./img/@OneToMany级联删除子实体1.png "@OneToMany单向关联删除示例1")
+   5. ![@OneToMany单向关联删除示例2](./img/@OneToMany级联删除子实体2.png "@OneToMany单向关联删除示例2")
+   6. 在持久化Person实体时，级联也会将持久化操作传播到底层Phone子级。Phone从电话集合中删除 a后，关联行将从链接表中删除，并且该orphanRemoval属性也将触发Phone删除
+   7. 在删除子实体时，单向关联不是很有效。在上面的示例中，在刷新持久性上下文时，Hibernate 从链接表中删除所有Person_Phone与父Person实体相关联的数据库行（例如 ），并重新插入仍然在@OneToMany集合中找到的行
+3. 双向关联：双向@OneToMany关联也需要@ManyToOne子方的关联。尽管域模型暴露了两个方面来导航这种关联，但在幕后，关系数据库对于这种关系只有一个外键。
+   1. ![@OneToMany双向关联一对多的一端](./img/@OneToMany双向关联1.png "@OneToMany双向关联1")
+   2. ![@OneToMany双向关联一对多的多端](./img/@OneToMany双向关联2.png "@OneToMany双向关联2")
+   3. ![@OneToMany双向关联数据库结构](./img/@OneToMany双向关联3.png "@OneToMany双向关联3")
+   4. 每当形成双向关联时，应用程序开发人员必须确保双方始终保持同步
+   5. addPhone()and removePhone()是在添加或删除子元素时同步两端的实用方法
+   6. 因为Phone该类有一个@NaturalId列（电话号码是唯一的），equals()并且hashCode()可以利用这个属性，所以removePhone()逻辑简化为remove()JavaCollection方法
+   7. ![@OneToMany双向关联数据库操作](./img/@OneToMany双向关联数据库操作.png "@OneToMany双向关联数据库操作")
+   8. 与单向关联不同@OneToMany，双向关联在管理集合持久状态时效率更高。每个元素删除只需要一次更新（其中外键列设置NULL为orphanRemoval属性和分离子级也会触发实际子表行上的删除语句
+##### @OneToOne
+1. OneToOne关联可以是单向的，也可以是双向的。单向关联遵循关系数据库外键语义，客户端拥有关系。双向关联也具有mappedBy @OneToOne父端
+2. 单向关联
+   1. ![@OneToOne单向关联1](./img/@OneToOne单向关联1.png "@OneToOne单向关联1")
+   2. ![@OneToOne单向关联2 数据库结构](./img/@OneToOne单向关联2.png "@OneToOne单向关联2")
+   3. 从关系数据库的角度来看，底层模式与单向@ManyToOne关联相同，因为客户端根据外键列控制关系
+   4. 但是，将其Phone视为客户端和PhoneDetails父方是不寻常的，因为如果没有实际的电话，细节就无法存在。一个更自然的映射将是Phone父端，因此将外键推入PhoneDetails表中
+3. 双向关联
+   1. ![@OneToOne双向关联1](./img/@OneToOne双向关联1.png "@OneToOne双向关联1")
+   2. ![@OneToOne双向关联2](./img/@OneToOne双向关联2.png "@OneToOne双向关联2")
+   3. ![@OneToOne双向关联3 数据库表结构](./img/@OneToOne双向关联3.png "@OneToOne双向关联3")
+4. 双向@OneToOne关联惰性加载
+   1. ![@OneToOne惰性加载1, 配合@LazyToOne()使用](./img/@OneToOne惰性加载1.png "@OneToOne惰性加载1")
+   2. ![@OneToOne惰性加载2, 配合@LazyToOne()使用](./img/@OneToOne惰性加载2.png "@OneToOne惰性加载2")
+##### @ManyToMany
+1. @ManyToMany关联需要一个连接两个实体的链接表
+2. 单向关联
+   1. ![@ManyToMany单向关联实体1](./img/@ManyToMany单向关联1.png "@ManyToMany单向关联1")
+   2. ![@ManyToMany单向关联 表结构2](./img/@ManyToMany单向关联2.png "@ManyToMany单向关联2")
+   3. 当从@ManyToMany集合中删除一个实体时，Hibernate 只是删除链接表中的连接记录
+   4. 不幸的是，此操作需要**删除与给定父项关联的所有条目**并**重新创建当前运行的持久上下文中列出的条目**
+   5. 对于@ManyToMany关联，REMOVE级联的实体状态转换没有意义，因为它会传播到链接表之外。由于另一方可能被父方的其他实体引用，因此自动删除可能以ConstraintViolationException
+   6. ![@ManyToMany删除级联对象可能的异常](./img/@ManyToMany删除级联对象可能的异常.png "@ManyToMany删除级联对象可能的异常")
+3. 双向关联
+   1. ![@ManyToMany双向关联1](./img/@ManyToMany双向关联1.png "@ManyToMany双向关联1")
+   2. ![@ManyToMany双向关联2](./img/@ManyToMany双向关联2.png "@ManyToMany双向关联2")
+   3. ![@ManyToMany双向关联 数据库表结构3](./img/@ManyToMany双向关联3.png "@ManyToMany双向关联3")
+   4. 使用辅助方法完成双向关联操作
+   5. ![@ManyToMany双向关联操作1](./img/@ManyToMany双向关联操作1.png "@ManyToMany双向关联操作1")
+   6. ![@ManyToMany双向关联操作2](./img/@ManyToMany双向关联操作2.png "@ManyToMany双向关联操作2")
+   7. 如果双向@OneToMany关联在删除或更改**子元素的顺序时表现更好**，则@ManyToMany关系无法从这种优化中受益，因为外键端不受控制
+   8. 为了克服这个限制，必须直接公开链接表，并将@ManyToMany关联拆分为两个双向@OneToMany关系
+4. 具有链接实体的双向多对多
+   1. 
