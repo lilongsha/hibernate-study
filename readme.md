@@ -35,7 +35,16 @@
 28. @OneToMany(targetEntity: Class, cascade: CascadeType[], fetch: FetchType, mappedBy: String, orphanRemoval: boolean)
 29. @OneToOne(targetEntity: Class, cascade: CascadeType[], fetch: FetchType, optional: boolean, mappedBy: String, orphanRemoval: boolean)
 30. @LazyToOne(value: LazyToOneOption)
-31. 
+31. @NotFound(action: NotFoundAction) 用于一对一或一对多或多对多的关联时，如果当不存在对应的外键关联时抛出异常FetchNotFoundException
+32. @Any(fetch: FetchType, optional: boolean)
+33. @AnyKeyJavaClass(value: Class)
+34. @AnyKeyJavaType(value: Class<? extends BasicJavaType<?>>) 
+35. @AnyKeyJdbcType(value: Class<? extends JdbcType>) 
+36. @AnyKeyJdbcTypeCode(value: int)
+37. @AnyDiscriminator(value: DiscriminatorType)
+38. @AnyDiscriminatorValue(discriminator: String, entity: Class)
+39. @ManyToAny(fetch: FetchType)
+40. 
 ### 概述
 #### Hibernate实现了JPA(Java Persistence API)
 ![data_access_layer](./img/data_access_layers.svg)
@@ -429,5 +438,44 @@
    6. ![@ManyToMany双向关联操作2](./img/@ManyToMany双向关联操作2.png "@ManyToMany双向关联操作2")
    7. 如果双向@OneToMany关联在删除或更改**子元素的顺序时表现更好**，则@ManyToMany关系无法从这种优化中受益，因为外键端不受控制
    8. 为了克服这个限制，必须直接公开链接表，并将@ManyToMany关联拆分为两个双向@OneToMany关系
-4. 具有链接实体的双向多对多
-   1. 
+4. 具有链接实体的双向@ManyToMany
+   1. ![@ManyToMany双向链表 Person实体](./img/@ManyToMany双向链表1.png "@ManyToMany双向链表")
+   2. ![@ManyToMany双向链表 PersonAddress实体](./img/@ManyToMany双向链表2.png "@ManyToMany双向链表")
+   3. ![@ManyToMany双向链表 Address实体](./img/@ManyToMany双向链表3.png "@ManyToMany双向链表")
+   4. ![@ManyToMany双向链表 数据库结构](./img/@ManyToMany双向链表4.png "@ManyToMany双向链表")
+   5. Person 和 Address都有mappedBy @OneToMany一方，而 PersonAddress 拥有person和address @ManyToOne关联。因为这个映射是由两个双向关联形成的，所以辅助方法更加相关
+   6. ![@ManyToMany双向链表 操作](./img/@ManyToMany双向链表 操作1.png "@ManyToMany双向链表 操作")
+   7. ![@ManyToMany双向链表 操作映射的SQL](./img/@ManyToMany双向链表 操作2.png "@ManyToMany双向链表 操作")
+   8. 只执行了一条删除语句，因为这一次，关联由一方控制，该@ManyToOne方只需监视底层外键关系的状态即可触发正确的 DML 语句
+##### @NotFound
+1. 解决当外键关联的实体不存在时，是抛出异常或者忽略，默认为抛出异常
+2. 此注解会破坏列的懒加载
+3. @NotFound还会影响在 HQL 和 Criteria 中如何将关联视为“隐式连接”。当存在物理外键时，Hibernate 可以安全地假设外键的键列中的值将与目标列中的值匹配，因为数据库会确保情况确实如此。但是，@NotFound当可能不需要时，强制 Hibernate 为隐式连接执行物理连接
+4. ![@NotFound 示例](./img/@NotFound.png "@NotFound")
+5. ![@NotFound 操作对应的数据库SQL](./img/@NotFound 操作.png "@NotFound 操作")
+6. ![@NotFound导致的隐式关联以及解决办法,导致HQL无法根据外键就是关联查询，可以使用fk()函数解决](./img/@NotFound导致的隐式关联以及解决办法.png "@NotFound导致的隐式关联以及解决办法")
+##### @Any 映射
+1. discriminator(鉴别器/辨别器)
+任意样式关联的鉴别器保存指示行引用哪个实体的值，它的“列”可以用@Column或指定@Formula。映射类型可能受以下任何一种影响 
+   1. @AnyDiscriminator允许在常见情况下重新使用Jakarta Persistence DiscriminatorType 的简化映射
+   2. @JavaType
+   3. @JdbcType
+   4. @JdbcTypeCode
+2. key
+任意样式关联的键保存该行的匹配键，它的“列”可以用任何一个指定@JoinColumn（**@JoinFormula不支持**）。映射类型可能受以下任何一种影响
+   1. @AnyKeyJavaClass
+   2. @AnyKeyJavaType
+   3. @AnyKeyJdbcType
+   4. @AnyKeyJdbcTypeCode
+3. discriminator mapping(鉴别器/辨别器 映射)
+   1. @AnyDiscriminatorValue用于将鉴别器值映射到相应的实体类
+4. ![@Any 示例](./img/@Any.png "@Any")
+5. ![@Any 使用示例1](./img/@Any 使用示例1.png "@Any 使用示例1")
+6. ![@Any 使用 对应数据库结构](./img/@Any 使用示例2.png "@Any 使用示例2")
+7. PropertyHolder#property可以引用StringProperty或IntegerProperty引用，如相关鉴别器根据@DiscriminatorValue注释指示的那样
+8. 使用接口、泛型、Holder以及discriminator实现
+9. ![@Any 持久化示例](./img/@Any 持久化示例.png "@Any 持久化示例")
+10. ![@ManyToAny 持久化示例](./img/@ManyToAny 持久化示例.png "@ManyToAny 持久化示例")
+11. ![@ManyToAny 查询示例](./img/@ManyToAny 查询示例.png "@ManyToAny 查询示例")
+##### @JoinFormula
+https://docs.jboss.org/hibernate/orm/6.0/userguide/html_single/Hibernate_User_Guide.html#associations-JoinFormula
